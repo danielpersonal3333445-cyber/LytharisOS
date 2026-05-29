@@ -1,6 +1,6 @@
 # LytharisOS
 
-LytharisOS is a custom Linux distribution built on **Debian Bookworm**, designed to deliver a **high-performance, visually refined, and security-focused desktop environment** with deep system control and a unified user experience.
+LytharisOS is a custom Linux distribution built on **Debian Liquorix**, designed to deliver a **high-performance, visually refined, and security-focused desktop environment** with deep system control and a unified user experience.
 
 It combines the stability of Debian with a modern KDE Plasma desktop, a performance-tuned kernel stack, and a fully integrated system control center that merges graphical management with terminal-level power.
 
