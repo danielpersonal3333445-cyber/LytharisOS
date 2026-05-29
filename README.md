@@ -1,151 +1,98 @@
-# LytharisOS
+##  LytharisOS Control Center
 
-**LytharisOS** is a custom Linux distribution built on Debian Bookworm, designed to deliver a **high-performance, visually refined, and security-oriented desktop experience** without sacrificing system control or transparency.
+LytharisOS includes a fully custom-built **native system control application**, designed as the central interface for both system management and advanced tooling.
 
-It combines the stability of Debian with a modern, responsive desktop stack powered by KDE Plasma and the Liquorix kernel, alongside a curated set of tools for development, system administration, and security research.
+Unlike traditional Linux setups, where system configuration is fragmented across terminals, config files, and separate utilities, LytharisOS unifies critical functionality into a single desktop application.
 
----
-
-## 🌐 Vision
-
-Most Linux distributions fall into one of three categories:
-
-- Too minimal, requiring extensive manual setup
-- Too heavy, filled with unnecessary background services
-- Too opinionated, limiting user control over the system
-
-LytharisOS is built to sit in the middle:
-
-> A system that feels instantly usable, visually refined, and performance-tuned — while still remaining completely transparent, modular, and user-controlled underneath.
-
-The goal is not to reinvent Linux, but to refine it into a cohesive desktop experience where every layer is intentional.
+Built using **PyQt**, the Control Center integrates directly with the system and mirrors KDE’s native design language for a seamless experience.
 
 ---
 
-## ⚙ Base System Architecture
+###  Core Design Philosophy
 
-LytharisOS is constructed from the ground up using Debian’s live-build system.
+The Control Center is built around one principle:
 
-- **Base:** Debian Bookworm (stable)
-- **Desktop Environment:** KDE Plasma (Wayland-first)
-- **Init System:** systemd
-- **Build System:** live-build (custom ISO generation)
-- **Package Model:** curated minimal-core + extended toolsets
+> Everything you can safely do in the terminal should also be accessible through a controlled, visual interface.
 
-This approach ensures reproducibility, auditability, and full customization at build time.
+However, this does not remove the terminal — it enhances it by providing structured, safer access layers for common operations.
 
 ---
 
-## 🚀 Performance Philosophy
+## 🧩 Feature Overview
 
-Performance in LytharisOS is not about stripping the system down to nothing — it is about eliminating inefficiency while preserving functionality.
+### 🛡 Security & Protection Layer
 
-### Core performance technologies:
+A dedicated security dashboard provides real-time control over system defenses:
 
-- :contentReference[oaicite:0]{index=0}  
-  A low-latency kernel tuned for desktop workloads, improving UI responsiveness, scheduling behavior, and input latency under load.
+- Antivirus (ClamAV) status monitoring and toggle control
+- Firewall (UFW) enable/disable and rule overview
+- AppArmor profile enforcement status
+- Fail2Ban intrusion prevention monitoring
+- Rootkit scan execution and result viewing
+- System audit log inspection (auditd)
 
-- **zram (LZ4 compressed RAM swap)**  
-  Reduces memory pressure and improves multitasking smoothness on limited or high-load systems.
-
-- **preload daemon**  
-  Predictively caches frequently used applications for faster launch times.
-
-- **service minimization**  
-  Non-essential background services are disabled or removed to reduce idle CPU usage.
-
-- **sysctl-level tuning**  
-  Kernel parameters adjusted for responsiveness, reduced lag spikes, and improved scheduling fairness.
-
-The result is a system that feels consistently “instant,” even under heavy multitasking.
+All security toggles are permission-gated and require elevated authorization.
 
 ---
 
-## 🎨 Desktop Experience
+### ⚙ System Management Layer
 
-LytharisOS prioritizes a **premium visual and interaction design language**.
+A unified system operations panel replaces scattered terminal commands:
 
-### KDE Plasma customization layer:
+- System updates and upgrades
+- Package cleanup and maintenance
+- Service status monitoring
+- Resource usage overview (CPU, RAM, disk)
+- Process and system health tools
+- Kernel and system information dashboard
 
-- Kvantum theme engine (advanced Qt theming control)
-- Consistent dark-first visual identity
-- Centered panel / dock-style layout
-- Smooth blur, transparency, and shadow system
-- Papirus icon theme
-- JetBrains Mono + Fira Code typography stack
-
-### Design philosophy:
-
-The interface is designed to feel:
-
-- minimal, but not empty  
-- modern, but not flashy  
-- responsive, but not distracting  
-
-Every visual element is tuned to reduce cognitive load while maintaining a high-end aesthetic.
+This layer acts as a visual replacement for common administrative workflows while preserving full CLI availability.
 
 ---
 
-## 🧰 System Tooling
+###  Advanced Tools & Pentesting Interface
 
-LytharisOS includes a curated selection of tools across system management, development, and diagnostics.
+LytharisOS exposes a controlled interface for security and diagnostic tooling:
 
-### 🖥 System Utilities
+- Network scanning (nmap-based workflows)
+- Traffic inspection tools (tcpdump / wireshark integration)
+- Web enumeration utilities (ffuf, gobuster, nikto)
+- Password auditing tools (hydra, john, hashcat)
+- OSINT tooling interface (amass, theHarvester, recon-ng)
+- Wireless security utilities (aircrack-ng suite)
+- Metasploit framework launcher and session manager
 
-- KDE System Monitor (process + resource tracking)
-- Filelight (graphical disk usage visualization)
-- KInfoCenter (hardware inspection)
-- Dolphin file manager (with terminal integration)
-- Partition Manager (GUI disk management)
-
-### 💻 Developer Toolchain
-
-- zsh shell with Starship prompt
-- bat, eza, ripgrep, fd, fzf
-- tmux for session persistence
-- gcc, clang, make, cmake toolchain
-- Python, Node.js, Go environments
-
-### 🔐 Security Toolkit
-
-LytharisOS integrates a security research and auditing environment:
-
-- Network analysis: nmap, wireshark, tcpdump
-- Web & service enumeration: gobuster, ffuf, nikto
-- Password & hash analysis: john, hashcat, hydra
-- Wireless tooling: aircrack-ng suite
-- Red team utilities: metasploit-framework, bettercap, responder
-- OSINT tools: theHarvester, amass, recon-ng
-
-These tools are intended for **authorized testing, auditing, and lab environments only**.
+These tools are **not hidden or removed**, but they are structured inside a guided interface to prevent accidental misuse.
 
 ---
 
-## 🔐 Security Architecture
+###  System Interaction Model
 
-Security in LytharisOS is layered and enforced at multiple levels:
+The Control Center does not replace the terminal — it orchestrates it.
 
-### System hardening:
+- Every action in the UI maps directly to a system command or service call
+- Operations are executed with controlled privilege escalation (PolicyKit integration)
+- Output is captured and displayed in-app for transparency
+- Advanced users can view or replicate any action in the terminal
 
-- AppArmor mandatory access control profiles
-- UFW firewall enabled by default
-- fail2ban intrusion prevention system
-- PAM-based password policy enforcement
-- fingerprint authentication support (fprintd)
+This ensures:
+- beginner-friendly access
+- expert-level transparency
+- zero “black box” system behavior
 
-### Malware and integrity protection:
+---
 
-- ClamAV antivirus (system-controlled toggle)
-- rkhunter + chkrootkit rootkit detection
-- auditd kernel-level event logging
+##  Why This Matters
 
-### Antivirus control model:
+Most Linux systems force a split between:
 
-Antivirus services are protected using immutable filesystem flags, preventing unauthorized modification.
+- GUI tools (limited, simplified)
+- Terminal tools (powerful, but fragmented)
 
-Control is restricted to root via:
+LytharisOS intentionally merges both into a single interaction layer, creating:
 
-```bash id="avctl"
-av-toggle on
-av-toggle off
-av-toggle status
+- a desktop-first experience for everyday users
+- a power-user environment for advanced workflows
+- a consistent interface for system-level operations
+
+The result is a system where **GUI and terminal are not competing layers — they are different views of the same control plane.**
