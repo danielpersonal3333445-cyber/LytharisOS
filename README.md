@@ -1,98 +1,147 @@
-##  LytharisOS Control Center
+# LytharisOS
 
-LytharisOS includes a fully custom-built **native system control application**, designed as the central interface for both system management and advanced tooling.
+LytharisOS is a custom Linux distribution built on **Debian Bookworm**, designed to deliver a **high-performance, visually refined, and security-focused desktop environment** with deep system control and a unified user experience.
 
-Unlike traditional Linux setups, where system configuration is fragmented across terminals, config files, and separate utilities, LytharisOS unifies critical functionality into a single desktop application.
-
-Built using **PyQt**, the Control Center integrates directly with the system and mirrors KDE’s native design language for a seamless experience.
+It combines the stability of Debian with a modern KDE Plasma desktop, a performance-tuned kernel stack, and a fully integrated system control center that merges graphical management with terminal-level power.
 
 ---
 
-###  Core Design Philosophy
+## 🌐 Philosophy
 
-The Control Center is built around one principle:
+LytharisOS is built around a simple idea:
 
-> Everything you can safely do in the terminal should also be accessible through a controlled, visual interface.
+> A Linux system should not force you to choose between simplicity and power.
 
-However, this does not remove the terminal — it enhances it by providing structured, safer access layers for common operations.
+Most distributions separate the experience into fragments:
+- GUI tools for basic tasks
+- terminal tools for advanced control
+- inconsistent system configuration layers
 
----
+LytharisOS merges these into a single cohesive environment where:
 
-## 🧩 Feature Overview
+- Everything important is visible
+- Everything powerful is accessible
+- Nothing is hidden behind unnecessary abstraction
 
-### 🛡 Security & Protection Layer
-
-A dedicated security dashboard provides real-time control over system defenses:
-
-- Antivirus (ClamAV) status monitoring and toggle control
-- Firewall (UFW) enable/disable and rule overview
-- AppArmor profile enforcement status
-- Fail2Ban intrusion prevention monitoring
-- Rootkit scan execution and result viewing
-- System audit log inspection (auditd)
-
-All security toggles are permission-gated and require elevated authorization.
+It is designed to feel:
+- fast
+- intentional
+- visually consistent
+- fully controllable
 
 ---
 
-### ⚙ System Management Layer
+## ⚙ System Base
 
-A unified system operations panel replaces scattered terminal commands:
-
-- System updates and upgrades
-- Package cleanup and maintenance
-- Service status monitoring
-- Resource usage overview (CPU, RAM, disk)
-- Process and system health tools
-- Kernel and system information dashboard
-
-This layer acts as a visual replacement for common administrative workflows while preserving full CLI availability.
+- **Base:** Debian Bookworm (stable)
+- **Desktop Environment:** KDE Plasma (Wayland-first)
+- **Init System:** systemd
+- **Build System:** live-build ISO generation
+- **Graphics Stack:** Wayland + XWayland fallback
+- **Package Model:** curated minimal core + extended tool layers
 
 ---
 
-###  Advanced Tools & Pentesting Interface
+## 🚀 Performance Stack
 
-LytharisOS exposes a controlled interface for security and diagnostic tooling:
+LytharisOS is tuned for responsiveness and smooth system behavior under load.
 
-- Network scanning (nmap-based workflows)
-- Traffic inspection tools (tcpdump / wireshark integration)
-- Web enumeration utilities (ffuf, gobuster, nikto)
-- Password auditing tools (hydra, john, hashcat)
-- OSINT tooling interface (amass, theHarvester, recon-ng)
-- Wireless security utilities (aircrack-ng suite)
-- Metasploit framework launcher and session manager
+### Core components:
 
-These tools are **not hidden or removed**, but they are structured inside a guided interface to prevent accidental misuse.
+- :contentReference[oaicite:0]{index=0}  
+  Provides reduced latency, improved responsiveness, and optimized scheduling for desktop workloads.
 
----
+- zram (LZ4 compression)  
+  Improves memory efficiency and reduces system slowdowns under pressure.
 
-###  System Interaction Model
+- preload daemon  
+  Speeds up application launch times via predictive caching.
 
-The Control Center does not replace the terminal — it orchestrates it.
+- reduced background services  
+  Minimizes idle CPU usage and background overhead.
 
-- Every action in the UI maps directly to a system command or service call
-- Operations are executed with controlled privilege escalation (PolicyKit integration)
-- Output is captured and displayed in-app for transparency
-- Advanced users can view or replicate any action in the terminal
-
-This ensures:
-- beginner-friendly access
-- expert-level transparency
-- zero “black box” system behavior
+- sysctl-level tuning  
+  Kernel parameters adjusted for responsiveness and stability under load.
 
 ---
 
-##  Why This Matters
+## 🎨 Desktop Experience
 
-Most Linux systems force a split between:
+LytharisOS is built to feel visually cohesive and modern out of the box.
 
-- GUI tools (limited, simplified)
-- Terminal tools (powerful, but fragmented)
+### KDE Plasma customization:
 
-LytharisOS intentionally merges both into a single interaction layer, creating:
+- Kvantum theme engine (full Qt visual control)
+- Papirus icon theme
+- JetBrains Mono + Fira Code fonts
+- Centered panel / dock-style layout
+- Blur, transparency, and shadow consistency tuning
+- Unified dark-first design language
 
-- a desktop-first experience for everyday users
-- a power-user environment for advanced workflows
-- a consistent interface for system-level operations
+### Design principles:
 
-The result is a system where **GUI and terminal are not competing layers — they are different views of the same control plane.**
+- minimal but not empty
+- modern but not flashy
+- consistent across all applications
+- focused on readability and workflow clarity
+
+---
+
+## 🧰 System Tooling
+
+LytharisOS ships with curated tools across system administration, development, and diagnostics.
+
+### 🖥 System utilities
+- KDE System Monitor
+- Filelight (disk usage visualization)
+- KInfoCenter (hardware information)
+- Dolphin file manager (terminal-integrated)
+- Partition Manager (GUI disk management)
+
+### 💻 Developer tools
+- zsh shell with Starship prompt
+- bat, eza, ripgrep, fd, fzf
+- tmux session manager
+- gcc, clang, cmake, make toolchain
+- Python, Node.js, Go environments
+
+### 🔐 Security toolkit
+LytharisOS includes a structured security and auditing environment:
+
+- Network analysis: nmap, wireshark, tcpdump
+- Web enumeration: gobuster, ffuf, nikto
+- Password auditing: hydra, john, hashcat
+- Wireless tools: aircrack-ng suite
+- Red team utilities: metasploit-framework, bettercap, responder
+- OSINT tools: amass, theHarvester, recon-ng
+
+These tools are intended strictly for **authorized security research, auditing, and lab environments**.
+
+---
+
+## 🔐 Security Architecture
+
+Security is implemented in layered form rather than relying on a single mechanism.
+
+### System protection layers:
+
+- AppArmor mandatory access control
+- UFW firewall enabled by default
+- fail2ban intrusion prevention
+- PAM password policy enforcement
+- fingerprint authentication support (fprintd)
+
+### Malware & integrity protection:
+
+- ClamAV antivirus (system-controlled toggle)
+- rkhunter + chkrootkit rootkit detection tools
+- auditd system logging and audit tracing
+
+### Antivirus control model:
+
+Antivirus services are protected using immutable filesystem flags and can only be controlled via root-level command interface:
+
+```bash
+av-toggle on
+av-toggle off
+av-toggle status
