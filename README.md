@@ -6,7 +6,7 @@ It combines the stability of Debian with a modern KDE Plasma desktop, a performa
 
 ---
 
-## 🌐 Philosophy
+##  Philosophy
 
 LytharisOS is built around a simple idea:
 
@@ -31,7 +31,7 @@ It is designed to feel:
 
 ---
 
-## ⚙ System Base
+##  System Base
 
 - **Base:** Debian Bookworm (stable)
 - **Desktop Environment:** KDE Plasma (Wayland-first)
@@ -42,7 +42,7 @@ It is designed to feel:
 
 ---
 
-## 🚀 Performance Stack
+##  Performance Stack
 
 LytharisOS is tuned for responsiveness and smooth system behavior under load.
 
@@ -65,7 +65,7 @@ LytharisOS is tuned for responsiveness and smooth system behavior under load.
 
 ---
 
-## 🎨 Desktop Experience
+##  Desktop Experience
 
 LytharisOS is built to feel visually cohesive and modern out of the box.
 
@@ -87,25 +87,25 @@ LytharisOS is built to feel visually cohesive and modern out of the box.
 
 ---
 
-## 🧰 System Tooling
+##  System Tooling
 
 LytharisOS ships with curated tools across system administration, development, and diagnostics.
 
-### 🖥 System utilities
+###  System utilities
 - KDE System Monitor
 - Filelight (disk usage visualization)
 - KInfoCenter (hardware information)
 - Dolphin file manager (terminal-integrated)
 - Partition Manager (GUI disk management)
 
-### 💻 Developer tools
+###  Developer tools
 - zsh shell with Starship prompt
 - bat, eza, ripgrep, fd, fzf
 - tmux session manager
 - gcc, clang, cmake, make toolchain
 - Python, Node.js, Go environments
 
-### 🔐 Security toolkit
+###  Security toolkit
 LytharisOS includes a structured security and auditing environment:
 
 - Network analysis: nmap, wireshark, tcpdump
@@ -119,7 +119,7 @@ These tools are intended strictly for **authorized security research, auditing, 
 
 ---
 
-## 🔐 Security Architecture
+##  Security Architecture
 
 Security is implemented in layered form rather than relying on a single mechanism.
 
