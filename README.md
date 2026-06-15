@@ -63,6 +63,4 @@ sudo dd if=live-image-amd64.hybrid.iso of=/dev/sdX bs=4M status=progress && sync
 
 Version 1.0 (Spectre) — active development
 
-## License
 
-MIT
