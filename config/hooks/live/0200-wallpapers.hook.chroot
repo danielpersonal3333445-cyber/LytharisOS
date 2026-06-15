@@ -1,0 +1,36 @@
+#!/bin/bash
+set -e
+
+mkdir -p /usr/share/wallpapers/lytharis
+
+# KDE official wallpaper pack
+apt-get install -y plasma-workspace-wallpapers
+
+BASE="https://images.unsplash.com/photo"
+
+declare -A walls=(
+  ["space-galaxy.jpg"]="${BASE}-1462331940025-496dfbfc7564?w=3840&q=95"
+  ["aurora.jpg"]="${BASE}-1531366936337-7c912a4589a7?w=3840&q=95"
+  ["mountains-fog.jpg"]="${BASE}-1464822759023-fed622ff2c3b?w=3840&q=95"
+  ["cybercity-night.jpg"]="${BASE}-1480714378408-67cf0d13bc1b?w=3840&q=95"
+  ["deep-ocean.jpg"]="${BASE}-1518020382113-a7e8fc38eac9?w=3840&q=95"
+  ["forest-dark.jpg"]="${BASE}-1448375240586-882707db888b?w=3840&q=95"
+  ["desert-dunes.jpg"]="${BASE}-1509316785289-025f5b846b35?w=3840&q=95"
+  ["volcano.jpg"]="${BASE}-1563484393729-8b1dc1027e14?w=3840&q=95"
+  ["milky-way.jpg"]="${BASE}-1419242902214-272b3f66ee7a?w=3840&q=95"
+  ["neon-city.jpg"]="${BASE}-1555680202-cde9d427d539?w=3840&q=95"
+  ["icebergs.jpg"]="${BASE}-1494791368093-85217fbbf8de?w=3840&q=95"
+  ["storm-lightning.jpg"]="${BASE}-1492011221367-f716129a63de?w=3840&q=95"
+  ["cherry-blossom.jpg"]="${BASE}-1522383225765-5b7aca66027b?w=3840&q=95"
+  ["lava-flow.jpg"]="${BASE}-1558618666-fcd25c85cd64?w=3840&q=95"
+  ["earth-from-space.jpg"]="${BASE}-1446776811106-9d1c74d08b25?w=3840&q=95"
+  ["abstract-dark.jpg"]="${BASE}-1557682250-33bd709cbe85?w=3840&q=95"
+  ["mountain-lake.jpg"]="${BASE}-1439853949212-36652d60a676?w=3840&q=95"
+)
+
+for name in "${!walls[@]}"; do
+  wget -q --timeout=30 -O "/usr/share/wallpapers/lytharis/${name}" \
+    "${walls[$name]}" || echo "skipped $name"
+done
+
+echo "Lytharis wallpapers downloaded."

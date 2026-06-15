@@ -1,0 +1,117 @@
+#!/bin/bash
+set -e
+
+# Set zsh as default shell
+sed -i 's|/bin/bash|/bin/zsh|g' /etc/passwd
+echo "SHELL=/bin/zsh" >> /etc/environment
+
+# Set Kvantum as Qt5 theme engine
+echo "QT_STYLE_OVERRIDE=kvantum" >> /etc/environment
+
+# Enable AppArmor
+systemctl enable apparmor
+find /etc/apparmor.d/ -maxdepth 1 -type f | while read profile; do
+  aa-enforce "$profile" 2>/dev/null || true
+done
+
+# Enable and lock ClamAV
+systemctl enable clamav-daemon
+systemctl enable clamav-freshclam
+chattr +i /etc/clamav/clamd.conf
+chattr +i /etc/clamav/freshclam.conf
+
+# Enable firewall
+ufw --force enable
+ufw default deny incoming
+ufw default allow outgoing
+
+# Enable fail2ban
+systemctl enable fail2ban
+
+# Enable zram
+echo "ALGO=lz4" >> /etc/default/zramswap
+echo "PERCENT=50" >> /etc/default/zramswap
+systemctl enable zramswap
+
+# Enable libvirt
+systemctl enable libvirtd
+
+# Install av-toggle script
+cat > /usr/local/sbin/av-toggle << 'AVSCRIPT'
+#!/bin/bash
+if [ "$EUID" -ne 0 ]; then echo "Root only."; exit 1; fi
+case "$1" in
+  off)
+    chattr -i /lib/systemd/system/clamav-daemon.service 2>/dev/null
+    systemctl stop clamav-daemon clamav-freshclam
+    systemctl disable clamav-daemon clamav-freshclam
+    chattr +i /lib/systemd/system/clamav-daemon.service 2>/dev/null
+    echo "AV disabled."
+    ;;
+  on)
+    chattr -i /lib/systemd/system/clamav-daemon.service 2>/dev/null
+    systemctl enable --now clamav-daemon clamav-freshclam
+    chattr +i /lib/systemd/system/clamav-daemon.service 2>/dev/null
+    echo "AV enabled."
+    ;;
+  status)
+    systemctl is-active clamav-daemon
+    ;;
+  *)
+    echo "Usage: av-toggle [on|off|status]"
+    ;;
+esac
+AVSCRIPT
+chmod 700 /usr/local/sbin/av-toggle
+chown root:root /usr/local/sbin/av-toggle
+
+# Password policy
+cat > /etc/security/pwquality.conf << 'PWCONF'
+minlen = 12
+minclass = 3
+maxrepeat = 2
+dictcheck = 1
+gecoscheck = 1
+PWCONF
+
+# Wayland as default session
+mkdir -p /etc/sddm.conf.d/
+cat > /etc/sddm.conf.d/session.conf << 'SDDMCONF'
+[General]
+DefaultSession=plasma-wayland.desktop
+SDDMCONF
+
+# Enable SDDM
+systemctl enable sddm
+systemctl set-default graphical.target
+
+# Kernel hardening
+cat > /etc/sysctl.d/99-lytharis.conf << 'SYSCTL'
+vm.swappiness=10
+vm.vfs_cache_pressure=50
+kernel.dmesg_restrict=1
+kernel.kptr_restrict=2
+net.ipv4.conf.all.rp_filter=1
+net.core.netdev_max_backlog=16384
+kernel.nmi_watchdog=0
+SYSCTL
+
+# Enable real-time watcher
+systemctl enable aether-watch
+
+# Create quarantine directory
+mkdir -p /var/quarantine
+chmod 700 /var/quarantine
+
+# Update Maldet signatures
+maldet --update-ver || true
+maldet --update || true
+
+# Set YARA rules permissions
+chmod -R 644 /etc/aetheros/yara-rules/
+chmod 755 /etc/aetheros/yara-rules/
+
+# Copy dotfiles to root
+cp -r /etc/skel/. /root/
+
+echo "LytharisOS setup complete."

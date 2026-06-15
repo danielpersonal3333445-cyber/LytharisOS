@@ -1,0 +1,33 @@
+#!/bin/bash
+# AetherOS real-time file watcher
+# Monitors Downloads, /tmp, and home for new/modified files
+
+WATCH_DIRS="/home /tmp /var/tmp"
+LOG="/var/log/aetheros-watch.log"
+
+echo "[$(date)] AetherOS watcher started" >> "$LOG"
+
+inotifywait -m -r -e close_write -e moved_to \
+  --format '%w%f' \
+  $WATCH_DIRS 2>/dev/null | while read FILE; do
+
+  # Skip quarantine folder
+  if echo "$FILE" | grep -q "/var/quarantine"; then
+    continue
+  fi
+
+  # Skip small files under 1KB (unlikely to be threats)
+  SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo 0)
+  if [ "$SIZE" -lt 1024 ]; then
+    continue
+  fi
+
+  # Skip directories
+  if [ -d "$FILE" ]; then
+    continue
+  fi
+
+  echo "[$(date)] New file detected: $FILE" >> "$LOG"
+  /usr/local/sbin/aether-scan "$FILE" &
+
+done

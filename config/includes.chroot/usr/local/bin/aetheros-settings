@@ -1,0 +1,447 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+import os
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+    QHBoxLayout, QPushButton, QLabel, QFrame, QScrollArea, QGridLayout,
+    QTabWidget, QMessageBox, QSizePolicy, QFileDialog)
+from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt5.QtGui import QFont, QIcon, QColor, QPalette
+
+class CommandThread(QThread):
+    result = pyqtSignal(str)
+    def __init__(self, cmd):
+        super().__init__()
+        self.cmd = cmd
+    def run(self):
+        try:
+            out = subprocess.check_output(self.cmd, shell=True, stderr=subprocess.STDOUT, timeout=10)
+            self.result.emit(out.decode().strip())
+        except Exception as e:
+            self.result.emit(str(e))
+
+class StatusCard(QFrame):
+    def __init__(self, title, value, color="#1D9E75"):
+        super().__init__()
+        self.setFrameShape(QFrame.StyledPanel)
+        self.setStyleSheet(f"""
+            QFrame {{
+                background: palette(base);
+                border: 1px solid {color};
+                border-radius: 10px;
+                padding: 8px;
+            }}
+        """)
+        layout = QVBoxLayout(self)
+        t = QLabel(title)
+        t.setStyleSheet("color: palette(mid); font-size: 11px;")
+        self.val = QLabel(value)
+        self.val.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: bold;")
+        layout.addWidget(t)
+        layout.addWidget(self.val)
+
+    def update_value(self, v):
+        self.val.setText(v)
+
+class AetherSettings(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Lytharis Control Center")
+        self.setMinimumSize(900, 650)
+        self.setup_ui()
+        self.refresh_status()
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.refresh_status)
+        self.timer.start(5000)
+
+    def setup_ui(self):
+        central = QWidget()
+        self.setCentralWidget(central)
+        main_layout = QVBoxLayout(central)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(16)
+
+        title = QLabel("Lytharis Control Center")
+        title.setStyleSheet("font-size: 22px; font-weight: bold;")
+        main_layout.addWidget(title)
+
+        tabs = QTabWidget()
+        tabs.setStyleSheet("QTabBar::tab { min-width: 120px; padding: 8px; }")
+        main_layout.addWidget(tabs)
+
+        tabs.addTab(self.make_security_tab(), "Security")
+        tabs.addTab(self.make_system_tab(), "System")
+        tabs.addTab(self.make_network_tab(), "Network")
+        tabs.addTab(self.make_settings_tab(), "Settings")
+        tabs.addTab(self.make_tools_tab(), "Tools")
+
+    def make_security_tab(self):
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setSpacing(12)
+
+        layout.addWidget(QLabel("Security Status"))
+        status_row = QHBoxLayout()
+        self.av_card = StatusCard("Antivirus", "checking...")
+        self.fw_card = StatusCard("Firewall", "checking...")
+        self.aa_card = StatusCard("AppArmor", "checking...")
+        self.f2b_card = StatusCard("Fail2Ban", "checking...")
+        self.watch_card = StatusCard("AV Watcher", "checking...", "#534AB7")
+        self.maldet_card = StatusCard("Maldet", "checking...", "#534AB7")
+        status_row.addWidget(self.av_card)
+        status_row.addWidget(self.fw_card)
+        status_row.addWidget(self.aa_card)
+        status_row.addWidget(self.f2b_card)
+        status_row.addWidget(self.watch_card)
+        status_row.addWidget(self.maldet_card)
+        layout.addLayout(status_row)
+
+        layout.addWidget(QLabel("Antivirus Control (requires root)"))
+        av_row = QHBoxLayout()
+        btn_av_on = QPushButton("Enable AV")
+        btn_av_on.clicked.connect(lambda: self.run_root_cmd("av-toggle on"))
+        btn_av_off = QPushButton("Disable AV")
+        btn_av_off.clicked.connect(lambda: self.confirm_then_run(
+            "Disable antivirus?", "av-toggle off"))
+        btn_scan = QPushButton("Run Full Scan")
+        btn_scan.clicked.connect(lambda: self.run_root_cmd(
+            "clamscan -r /home --bell -i"))
+        btn_update_sigs = QPushButton("Update Signatures")
+        btn_update_sigs.clicked.connect(lambda: self.run_root_cmd(
+            "freshclam && maldet --update"))
+        btn_watch_on = QPushButton("Enable Watcher")
+        btn_watch_on.clicked.connect(lambda: self.run_root_cmd(
+            "systemctl start aether-watch"))
+        btn_watch_off = QPushButton("Disable Watcher")
+        btn_watch_off.clicked.connect(lambda: self.confirm_then_run(
+            "Disable real-time watcher?", "systemctl stop aether-watch"))
+        av_row.addWidget(btn_av_on)
+        av_row.addWidget(btn_av_off)
+        av_row.addWidget(btn_scan)
+        av_row.addWidget(btn_update_sigs)
+        av_row.addWidget(btn_watch_on)
+        av_row.addWidget(btn_watch_off)
+        layout.addLayout(av_row)
+
+        layout.addWidget(QLabel("Dual-AV Scanner (ClamAV + Maldet + YARA)"))
+        dual_row = QHBoxLayout()
+        btn_dual = QPushButton("Scan a File")
+        btn_dual.clicked.connect(self.dual_scan_file)
+        btn_dual_home = QPushButton("Scan Entire Home")
+        btn_dual_home.clicked.connect(lambda: self.run_root_cmd(
+            "clamscan -r /home --bell -i"))
+        btn_quarantine = QPushButton("View Quarantine")
+        btn_quarantine.clicked.connect(lambda: self.show_output(
+            "ls -lah /var/quarantine/"))
+        btn_av_log = QPushButton("AV Scan Log")
+        btn_av_log.clicked.connect(lambda: self.show_output(
+            "tail -100 /var/log/aetheros-av.log"))
+        btn_watcher = QPushButton("Watcher Log")
+        btn_watcher.clicked.connect(lambda: self.show_output(
+            "tail -50 /var/log/aetheros-watch.log"))
+        dual_row.addWidget(btn_dual)
+        dual_row.addWidget(btn_dual_home)
+        dual_row.addWidget(btn_quarantine)
+        dual_row.addWidget(btn_av_log)
+        dual_row.addWidget(btn_watcher)
+        layout.addLayout(dual_row)
+
+        layout.addWidget(QLabel("Firewall Control (requires root)"))
+        fw_row = QHBoxLayout()
+        btn_fw_on = QPushButton("Enable Firewall")
+        btn_fw_on.clicked.connect(lambda: self.run_root_cmd("ufw --force enable"))
+        btn_fw_off = QPushButton("Disable Firewall")
+        btn_fw_off.clicked.connect(lambda: self.confirm_then_run(
+            "Disable firewall?", "ufw disable"))
+        btn_fw_status = QPushButton("View Rules")
+        btn_fw_status.clicked.connect(lambda: self.show_output(
+            "ufw status verbose"))
+        fw_row.addWidget(btn_fw_on)
+        fw_row.addWidget(btn_fw_off)
+        fw_row.addWidget(btn_fw_status)
+        layout.addLayout(fw_row)
+
+        layout.addWidget(QLabel("Security Scans"))
+        scan_row = QHBoxLayout()
+        btn_rk = QPushButton("Rootkit Scan")
+        btn_rk.clicked.connect(lambda: self.run_root_cmd(
+            "rkhunter --check --skip-keypress"))
+        btn_audit = QPushButton("View Audit Log")
+        btn_audit.clicked.connect(lambda: self.show_output(
+            "ausearch -ts recent"))
+        btn_chk = QPushButton("Chkrootkit")
+        btn_chk.clicked.connect(lambda: self.run_root_cmd("chkrootkit"))
+        btn_yara = QPushButton("YARA Scan Home")
+        btn_yara.clicked.connect(lambda: self.run_root_cmd(
+            "yara -r /etc/aetheros/yara-rules/ /home"))
+        scan_row.addWidget(btn_rk)
+        scan_row.addWidget(btn_audit)
+        scan_row.addWidget(btn_chk)
+        scan_row.addWidget(btn_yara)
+        layout.addLayout(scan_row)
+
+        layout.addStretch()
+        return w
+
+    def make_system_tab(self):
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setSpacing(12)
+
+        layout.addWidget(QLabel("System Information"))
+        info_row = QHBoxLayout()
+        self.cpu_card = StatusCard("CPU Usage", "...", "#378ADD")
+        self.mem_card = StatusCard("Memory", "...", "#378ADD")
+        self.disk_card = StatusCard("Disk", "...", "#378ADD")
+        self.up_card = StatusCard("Uptime", "...", "#378ADD")
+        info_row.addWidget(self.cpu_card)
+        info_row.addWidget(self.mem_card)
+        info_row.addWidget(self.disk_card)
+        info_row.addWidget(self.up_card)
+        layout.addLayout(info_row)
+
+        layout.addWidget(QLabel("System Actions"))
+        act_row = QHBoxLayout()
+        btn_update = QPushButton("Update System")
+        btn_update.clicked.connect(lambda: self.run_root_cmd(
+            "apt update && apt upgrade -y"))
+        btn_clean = QPushButton("Clean System")
+        btn_clean.clicked.connect(lambda: self.run_root_cmd(
+            "apt autoremove -y && apt autoclean"))
+        btn_monitor = QPushButton("Process Monitor")
+        btn_monitor.clicked.connect(lambda: subprocess.Popen(
+            ["plasma-systemmonitor"]))
+        btn_disk = QPushButton("Disk Usage")
+        btn_disk.clicked.connect(lambda: subprocess.Popen(["filelight"]))
+        btn_bleach = QPushButton("Clean Junk")
+        btn_bleach.clicked.connect(lambda: subprocess.Popen(["bleachbit"]))
+        act_row.addWidget(btn_update)
+        act_row.addWidget(btn_clean)
+        act_row.addWidget(btn_monitor)
+        act_row.addWidget(btn_disk)
+        act_row.addWidget(btn_bleach)
+        layout.addLayout(act_row)
+
+        layout.addWidget(QLabel("Services"))
+        svc_row = QHBoxLayout()
+        btn_svc = QPushButton("View All Services")
+        btn_svc.clicked.connect(lambda: self.show_output(
+            "systemctl list-units --type=service --state=running"))
+        btn_logs = QPushButton("System Logs")
+        btn_logs.clicked.connect(lambda: subprocess.Popen(["ksystemlog"]))
+        btn_boot = QPushButton("Boot Analysis")
+        btn_boot.clicked.connect(lambda: self.show_output(
+            "systemd-analyze blame | head -20"))
+        btn_stacer = QPushButton("Stacer")
+        btn_stacer.clicked.connect(lambda: subprocess.Popen(["stacer"]))
+        svc_row.addWidget(btn_svc)
+        svc_row.addWidget(btn_logs)
+        svc_row.addWidget(btn_boot)
+        svc_row.addWidget(btn_stacer)
+        layout.addLayout(svc_row)
+
+        layout.addStretch()
+        return w
+
+    def make_network_tab(self):
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setSpacing(12)
+
+        layout.addWidget(QLabel("Network"))
+        net_row = QHBoxLayout()
+        btn_nm = QPushButton("Network Manager")
+        btn_nm.clicked.connect(lambda: subprocess.Popen(
+            ["nm-connection-editor"]))
+        btn_ip = QPushButton("Show IP Info")
+        btn_ip.clicked.connect(lambda: self.show_output(
+            "ip addr && echo && ip route"))
+        btn_dns = QPushButton("DNS Info")
+        btn_dns.clicked.connect(lambda: self.show_output(
+            "resolvectl status"))
+        btn_open = QPushButton("Open Ports")
+        btn_open.clicked.connect(lambda: self.show_output("ss -tulanp"))
+        net_row.addWidget(btn_nm)
+        net_row.addWidget(btn_ip)
+        net_row.addWidget(btn_dns)
+        net_row.addWidget(btn_open)
+        layout.addLayout(net_row)
+
+        layout.addWidget(QLabel("Security Tools"))
+        sec_row = QHBoxLayout()
+        btn_scan = QPushButton("Scan Network")
+        btn_scan.clicked.connect(lambda: self.show_output(
+            "nmap -sn 192.168.1.0/24"))
+        btn_wire = QPushButton("Wireshark")
+        btn_wire.clicked.connect(lambda: subprocess.Popen(["wireshark"]))
+        btn_tor = QPushButton("Tor Status")
+        btn_tor.clicked.connect(lambda: self.show_output(
+            "systemctl status tor"))
+        btn_proxy = QPushButton("Proxychains Config")
+        btn_proxy.clicked.connect(lambda: self.show_output(
+            "cat /etc/proxychains4.conf"))
+        sec_row.addWidget(btn_scan)
+        sec_row.addWidget(btn_wire)
+        sec_row.addWidget(btn_tor)
+        sec_row.addWidget(btn_proxy)
+        layout.addLayout(sec_row)
+
+        layout.addStretch()
+        return w
+
+    def make_settings_tab(self):
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setSpacing(12)
+
+        layout.addWidget(QLabel("Quick Settings"))
+        grid = QGridLayout()
+        shortcuts = [
+            ("Display", "kcmshell5 kcm_kscreen"),
+            ("Audio", "kcmshell5 kcm_pulseaudio"),
+            ("Bluetooth", "kcmshell5 bluedevil"),
+            ("Theme", "kcmshell5 org.kde.desktop"),
+            ("Icons", "kcmshell5 icons"),
+            ("Fonts", "kcmshell5 fonts"),
+            ("Keyboard", "kcmshell5 kcm_keyboard"),
+            ("Mouse", "kcmshell5 mouse"),
+            ("Touchpad", "kcmshell5 touchpad"),
+            ("Power", "kcmshell5 powerdevilprofilesconfig"),
+            ("Users", "kcmshell5 user_manager"),
+            ("Autostart", "kcmshell5 autostart"),
+            ("Notifications", "kcmshell5 notifications"),
+            ("Privacy", "kcmshell5 kcm_kded"),
+            ("All Settings", "systemsettings5"),
+        ]
+        for i, (label, cmd) in enumerate(shortcuts):
+            btn = QPushButton(label)
+            btn.setMinimumHeight(40)
+            btn.clicked.connect(lambda _, c=cmd: subprocess.Popen(c.split()))
+            grid.addWidget(btn, i // 3, i % 3)
+        layout.addLayout(grid)
+        layout.addStretch()
+        return w
+
+    def make_tools_tab(self):
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setSpacing(12)
+
+        layout.addWidget(QLabel("Security Tools"))
+        tools_row = QHBoxLayout()
+        for label, cmd in [
+            ("Metasploit", "konsole -e sudo msfconsole"),
+            ("Wireshark", "wireshark"),
+            ("Zenmap", "zenmap"),
+            ("Partition Manager", "sudo partitionmanager"),
+            ("VM Manager", "virt-manager"),
+        ]:
+            btn = QPushButton(label)
+            btn.setMinimumHeight(40)
+            btn.clicked.connect(lambda _, c=cmd: subprocess.Popen(c.split()))
+            tools_row.addWidget(btn)
+        layout.addLayout(tools_row)
+
+        layout.addWidget(QLabel("Terminal"))
+        term_row = QHBoxLayout()
+        btn_term = QPushButton("Open Terminal")
+        btn_term.clicked.connect(lambda: subprocess.Popen(["konsole"]))
+        btn_root = QPushButton("Root Terminal")
+        btn_root.clicked.connect(lambda: subprocess.Popen(
+            ["konsole", "-e", "sudo", "zsh"]))
+        term_row.addWidget(btn_term)
+        term_row.addWidget(btn_root)
+        layout.addLayout(term_row)
+
+        layout.addStretch()
+        return w
+
+    def refresh_status(self):
+        def check(cmd):
+            try:
+                subprocess.check_output(cmd, shell=True,
+                    stderr=subprocess.DEVNULL)
+                return True
+            except:
+                return False
+
+        av = "active" if check("systemctl is-active clamav-daemon") else "inactive"
+        fw = "active" if check("ufw status | grep -q active") else "inactive"
+        aa = "active" if check("systemctl is-active apparmor") else "inactive"
+        f2b = "active" if check("systemctl is-active fail2ban") else "inactive"
+        watch = "active" if check("systemctl is-active aether-watch") else "inactive"
+        maldet = "active" if check("systemctl is-active maldet") else "inactive"
+
+        ca = "#1D9E75"
+        ci = "#E24B4A"
+
+        for card, val in [
+            (self.av_card, av),
+            (self.fw_card, fw),
+            (self.aa_card, aa),
+            (self.f2b_card, f2b),
+        ]:
+            card.val.setStyleSheet(
+                f"color: {ca if val == 'active' else ci}; font-size: 14px; font-weight: bold;")
+            card.update_value(val)
+
+        for card, val in [
+            (self.watch_card, watch),
+            (self.maldet_card, maldet),
+        ]:
+            card.val.setStyleSheet(
+                f"color: {ca if val == 'active' else ci}; font-size: 14px; font-weight: bold;")
+            card.update_value(val)
+
+        try:
+            cpu = subprocess.check_output(
+                "top -bn1 | grep 'Cpu(s)' | awk '{print $2+$4\"%\"}'",
+                shell=True).decode().strip()
+            mem = subprocess.check_output(
+                "free -h | awk '/Mem/{print $3\"/\"$2}'",
+                shell=True).decode().strip()
+            disk = subprocess.check_output(
+                "df -h / | awk 'NR==2{print $3\"/\"$2}'",
+                shell=True).decode().strip()
+            up = subprocess.check_output(
+                "uptime -p | sed 's/up //'",
+                shell=True).decode().strip()
+            self.cpu_card.update_value(cpu)
+            self.mem_card.update_value(mem)
+            self.disk_card.update_value(disk)
+            self.up_card.update_value(up)
+        except:
+            pass
+
+    def show_output(self, cmd):
+        try:
+            out = subprocess.check_output(cmd, shell=True,
+                stderr=subprocess.STDOUT, timeout=30)
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Output")
+            msg.setText(out.decode().strip()[:2000])
+            msg.exec_()
+        except Exception as e:
+            QMessageBox.warning(self, "Error", str(e))
+
+    def run_root_cmd(self, cmd):
+        subprocess.Popen(["konsole", "-e", "bash", "-c",
+            f"sudo {cmd}; echo; echo Done. Press Enter to close.; read"])
+
+    def confirm_then_run(self, question, cmd):
+        reply = QMessageBox.question(self, "Confirm", question,
+            QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.run_root_cmd(cmd)
+
+    def dual_scan_file(self):
+        file, _ = QFileDialog.getOpenFileName(self, "Select file to scan")
+        if file:
+            self.run_root_cmd(f"aether-scan '{file}'")
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    app.setApplicationName("Lytharis Control Center")
+    win = AetherSettings()
+    win.show()
+    sys.exit(app.exec_())

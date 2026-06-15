@@ -1,0 +1,196 @@
+#!/bin/bash
+set -e
+
+echo "Installing extra tools for LytharisOS..."
+
+# ── REPOS ──────────────────────────────────────────────────────────────────
+
+# Brave browser
+curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg \
+  https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] \
+  https://brave-browser-apt-release.s3.brave.com/ stable main" \
+  > /etc/apt/sources.list.d/brave-browser.list
+
+# VS Code
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | \
+  gpg --dearmor > /usr/share/keyrings/microsoft.gpg
+echo "deb [signed-by=/usr/share/keyrings/microsoft.gpg] \
+  https://packages.microsoft.com/repos/code stable main" \
+  > /etc/apt/sources.list.d/vscode.list
+
+# GitHub CLI
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+  dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+  https://cli.github.com/packages stable main" \
+  > /etc/apt/sources.list.d/github-cli.list
+
+apt-get update -qq
+
+# Install from new repos
+apt-get install -y brave-browser code gh || true
+
+# ── BINARIES ───────────────────────────────────────────────────────────────
+
+# fastfetch
+wget -qO /tmp/fastfetch.deb \
+  https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-amd64.deb
+dpkg -i /tmp/fastfetch.deb || apt-get install -f -y
+
+# eza
+EZA_VER=$(curl -s https://api.github.com/repos/eza-community/eza/releases/latest \
+  | grep tag_name | cut -d'"' -f4)
+wget -qO /tmp/eza.tar.gz \
+  "https://github.com/eza-community/eza/releases/download/${EZA_VER}/eza_x86_64-unknown-linux-gnu.tar.gz"
+tar -xf /tmp/eza.tar.gz -C /usr/local/bin/
+chmod +x /usr/local/bin/eza
+
+# nuclei
+NUCLEI_VER=$(curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest \
+  | grep tag_name | cut -d'"' -f4)
+wget -qO /tmp/nuclei.zip \
+  "https://github.com/projectdiscovery/nuclei/releases/download/${NUCLEI_VER}/nuclei_${NUCLEI_VER#v}_linux_amd64.zip"
+unzip -q /tmp/nuclei.zip -d /tmp/nuclei_extract/
+cp /tmp/nuclei_extract/nuclei /usr/local/bin/nuclei
+chmod +x /usr/local/bin/nuclei
+
+# subfinder
+SF_VER=$(curl -s https://api.github.com/repos/projectdiscovery/subfinder/releases/latest \
+  | grep tag_name | cut -d'"' -f4)
+wget -qO /tmp/subfinder.zip \
+  "https://github.com/projectdiscovery/subfinder/releases/download/${SF_VER}/subfinder_${SF_VER#v}_linux_amd64.zip"
+unzip -q /tmp/subfinder.zip -d /tmp/subfinder_extract/
+cp /tmp/subfinder_extract/subfinder /usr/local/bin/subfinder
+chmod +x /usr/local/bin/subfinder
+
+# httpx
+HTTPX_VER=$(curl -s https://api.github.com/repos/projectdiscovery/httpx/releases/latest \
+  | grep tag_name | cut -d'"' -f4)
+wget -qO /tmp/httpx.zip \
+  "https://github.com/projectdiscovery/httpx/releases/download/${HTTPX_VER}/httpx_${HTTPX_VER#v}_linux_amd64.zip"
+unzip -q /tmp/httpx.zip -d /tmp/httpx_extract/
+cp /tmp/httpx_extract/httpx /usr/local/bin/httpx
+chmod +x /usr/local/bin/httpx
+
+# Starship
+curl -sS https://starship.rs/install.sh | sh -s -- -y
+
+# ── PYTHON TOOLS ───────────────────────────────────────────────────────────
+
+pip3 install --break-system-packages \
+  theharvester \
+  impacket \
+  pymeta \
+  shodan \
+  censys \
+  truffleHog \
+  semgrep \
+  dnsgen \
+  fierce \
+  wafw00f \
+  wfuzz \
+  updog \
+  pwncat-cs || true
+
+# ── GIT CLONES ─────────────────────────────────────────────────────────────
+
+# exploitdb searchsploit
+git clone --depth 1 https://gitlab.com/exploit-database/exploitdb /opt/exploitdb || true
+ln -sf /opt/exploitdb/searchsploit /usr/local/bin/searchsploit
+
+# SecLists wordlists
+git clone --depth 1 https://github.com/danielmiessler/SecLists /usr/share/seclists || true
+
+# rockyou
+mkdir -p /usr/share/wordlists
+wget -qO /usr/share/wordlists/rockyou.txt.gz \
+  https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt || true
+gzip -d /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true
+
+# Responder
+git clone --depth 1 https://github.com/lgandx/Responder /opt/responder || true
+ln -sf /opt/responder/Responder.py /usr/local/bin/responder
+
+# LinPEAS
+mkdir -p /opt/peass
+wget -qO /opt/peass/linpeas.sh \
+  https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh || true
+wget -qO /opt/peass/winpeas.exe \
+  https://github.com/carlospolop/PEASS-ng/releases/latest/download/winPEASx64.exe || true
+chmod +x /opt/peass/linpeas.sh
+ln -sf /opt/peass/linpeas.sh /usr/local/bin/linpeas
+
+# maldet
+wget -qO /tmp/maldet.tar.gz https://www.rfxn.com/downloads/maldetect-current.tar.gz || true
+tar -xzf /tmp/maldet.tar.gz -C /tmp/ || true
+cd /tmp/maldetect-* && bash install.sh || true
+cd /
+
+# ── AUTO-UPDATE SERVICE ────────────────────────────────────────────────────
+
+cat > /usr/local/sbin/lytharis-update << 'UPDATESCRIPT'
+#!/bin/bash
+LOG="/var/log/lytharis-update.log"
+echo "[$(date)] Starting LytharisOS auto-update..." >> "$LOG"
+
+apt-get update -qq && apt-get upgrade -y >> "$LOG" 2>&1
+
+flatpak update -y >> "$LOG" 2>&1 || true
+
+msfupdate >> "$LOG" 2>&1 || true
+
+maldet --update >> "$LOG" 2>&1 || true
+
+freshclam >> "$LOG" 2>&1 || true
+
+cd /opt/exploitdb && git pull >> "$LOG" 2>&1 || true
+
+cd /opt/responder && git pull >> "$LOG" 2>&1 || true
+
+cd /usr/share/seclists && git pull >> "$LOG" 2>&1 || true
+
+pip3 install --break-system-packages --upgrade \
+  theharvester impacket truffleHog semgrep wafw00f >> "$LOG" 2>&1 || true
+
+nuclei -update-templates >> "$LOG" 2>&1 || true
+
+EZA_VER=$(curl -s https://api.github.com/repos/eza-community/eza/releases/latest \
+  | grep tag_name | cut -d'"' -f4)
+wget -qO /tmp/eza.tar.gz \
+  "https://github.com/eza-community/eza/releases/download/${EZA_VER}/eza_x86_64-unknown-linux-gnu.tar.gz" \
+  && tar -xf /tmp/eza.tar.gz -C /usr/local/bin/ 2>/dev/null || true
+
+echo "[$(date)] LytharisOS auto-update complete." >> "$LOG"
+UPDATESCRIPT
+
+chmod 700 /usr/local/sbin/lytharis-update
+chown root:root /usr/local/sbin/lytharis-update
+
+cat > /etc/systemd/system/lytharis-update.service << 'SVC'
+[Unit]
+Description=LytharisOS Auto Updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lytharis-update
+User=root
+SVC
+
+cat > /etc/systemd/system/lytharis-update.timer << 'TIMER'
+[Unit]
+Description=LytharisOS Daily Auto Update
+
+[Timer]
+OnCalendar=03:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+TIMER
+
+systemctl enable lytharis-update.timer
+
+echo "Extra tools installed for LytharisOS."

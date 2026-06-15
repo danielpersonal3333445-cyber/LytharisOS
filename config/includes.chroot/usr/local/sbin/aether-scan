@@ -1,0 +1,83 @@
+#!/bin/bash
+# AetherOS Dual-AV Scanner
+# Runs ClamAV + Maldet in isolated namespaces, blocks if either flags
+
+FILE="$1"
+LOG="/var/log/aetheros-av.log"
+QUARANTINE="/var/quarantine"
+
+if [ -z "$FILE" ]; then
+  echo "Usage: aether-scan <file>"
+  exit 1
+fi
+
+if [ ! -f "$FILE" ]; then
+  echo "File not found: $FILE"
+  exit 1
+fi
+
+mkdir -p "$QUARANTINE"
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+FILENAME=$(basename "$FILE")
+
+echo "[$TIMESTAMP] Scanning: $FILE" | tee -a "$LOG"
+
+# Run ClamAV in isolated namespace
+CLAM_RESULT=$(systemd-run --pipe --wait \
+  --property=PrivateTmp=yes \
+  --property=PrivateNetwork=yes \
+  --property=NoNewPrivileges=yes \
+  clamscan --no-summary "$FILE" 2>&1)
+CLAM_EXIT=$?
+
+# Run Maldet in isolated namespace
+MALDET_RESULT=$(systemd-run --pipe --wait \
+  --property=PrivateTmp=yes \
+  --property=PrivateNetwork=yes \
+  --property=NoNewPrivileges=yes \
+  maldet --scan-file "$FILE" 2>&1)
+MALDET_EXIT=$?
+
+# Run YARA rules
+YARA_RESULT=$(systemd-run --pipe --wait \
+  --property=PrivateTmp=yes \
+  --property=PrivateNetwork=yes \
+  --property=NoNewPrivileges=yes \
+  yara -r /etc/aetheros/yara-rules/ "$FILE" 2>&1)
+YARA_EXIT=$?
+
+# Combine results — block if ANY scanner flags it
+THREAT_FOUND=0
+REASON=""
+
+if [ $CLAM_EXIT -ne 0 ]; then
+  THREAT_FOUND=1
+  REASON="ClamAV: $(echo "$CLAM_RESULT" | grep FOUND)"
+fi
+
+if echo "$MALDET_RESULT" | grep -q "hits:"; then
+  HITS=$(echo "$MALDET_RESULT" | grep "hits:" | awk '{print $2}')
+  if [ "$HITS" -gt 0 ] 2>/dev/null; then
+    THREAT_FOUND=1
+    REASON="$REASON | Maldet: $HITS hit(s)"
+  fi
+fi
+
+if [ $YARA_EXIT -eq 0 ] && [ -n "$YARA_RESULT" ]; then
+  THREAT_FOUND=1
+  REASON="$REASON | YARA: $YARA_RESULT"
+fi
+
+if [ $THREAT_FOUND -eq 1 ]; then
+  # Quarantine the file
+  mv "$FILE" "$QUARANTINE/${FILENAME}.quarantined"
+  chmod 000 "$QUARANTINE/${FILENAME}.quarantined"
+  echo "[$TIMESTAMP] THREAT BLOCKED: $FILE | $REASON" | tee -a "$LOG"
+  # Desktop notification
+  notify-send "AetherOS AV" "Threat blocked: $FILENAME" \
+    --icon=security-high --urgency=critical 2>/dev/null || true
+  exit 1
+else
+  echo "[$TIMESTAMP] CLEAN: $FILE" | tee -a "$LOG"
+  exit 0
+fi

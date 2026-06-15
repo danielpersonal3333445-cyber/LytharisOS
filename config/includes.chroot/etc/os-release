@@ -1,0 +1,7 @@
+NAME="Lytharis"
+PRETTY_NAME="LytharisOS 1.0 (Spectre)"
+ID=lytharis
+ID_LIKE=debian
+VERSION="1.0"
+VERSION_CODENAME=spectre
+HOME_URL="https://lytharis.local"

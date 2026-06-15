@@ -1,0 +1,13 @@
+cache/
+.build/
+chroot/
+binary/
+auto/
+*.iso
+*.img
+*.log
+live-image*
+chroot.packages.*
+chroot.files
+wget-log*
+build.log
